@@ -49,11 +49,25 @@ def get_admin_keyboard(user_id):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t("btn_map")), KeyboardButton(text=t("btn_add"))],
-            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_manage"))],
-            [KeyboardButton(text=t("btn_language"))]
+            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_stats"))],
+            [KeyboardButton(text=t("btn_manage")), KeyboardButton(text=t("btn_language"))]
         ],
         resize_keyboard=True
     )
+```
+
+Сохраните, запушьте и обновите на сервере:
+```
+git add .
+git commit -m "fix admin keyboard"
+git push
+```
+
+На сервере:
+```
+cd /root/graffiti-tbilisi-bot
+git pull
+systemctl restart graffiti-bot
 
 
 # Определяем шаги диалога

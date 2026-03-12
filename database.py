@@ -48,12 +48,23 @@ def get_pending_graffiti():
     conn.close()
     return rows
 
-def update_status(graffiti_id, status):
+def get_stats():
     conn = sqlite3.connect("graffiti.db")
     cursor = conn.cursor()
-    cursor.execute("UPDATE graffiti SET status = ? WHERE id = ?", (status, graffiti_id))
-    conn.commit()
+    cursor.execute("SELECT COUNT(*) FROM graffiti WHERE status = 'approved'")
+    approved = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM graffiti WHERE status = 'pending'")
+    pending = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM graffiti")
+    total = cursor.fetchone()[0]
+    cursor.execute("""
+        SELECT added_by, COUNT(*) as cnt 
+        FROM graffiti WHERE status = 'approved' 
+        GROUP BY added_by ORDER BY cnt DESC LIMIT 5
+    """)
+    top_users = cursor.fetchall()
     conn.close()
+    return {"approved": approved, "pending": pending, "total": total, "top_users": top_users}
 
 def delete_graffiti(graffiti_id):
     conn = sqlite3.connect("graffiti.db")

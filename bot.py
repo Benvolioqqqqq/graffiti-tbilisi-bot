@@ -3,39 +3,56 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, search_graffiti, delete_graffiti
+from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, search_graffiti, \
+    delete_graffiti
 from map_generator import generate_map
 from aiogram.types import FSInputFile
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiohttp import web
 from web_server import create_app
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-
+from texts import get_text, set_language, get_language
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 WEB_APP_URL = os.environ.get("WEB_APP_URL", "")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 
-
-
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-main_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🗺 Карта"), KeyboardButton(text="➕ Добавить граффити")],
-        [KeyboardButton(text="🔍 Поиск"), KeyboardButton(text="⚙️ Управление")]
-    ],
-    resize_keyboard=True
-)
 
-cancel_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="❌ Отмена")]
-    ],
-    resize_keyboard=True
-)
+def get_main_keyboard(user_id):
+    t = lambda key: get_text(user_id, key)
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t("btn_map")), KeyboardButton(text=t("btn_add"))],
+            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_language"))]
+        ],
+        resize_keyboard=True
+    )
+
+
+def get_cancel_keyboard(user_id):
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=get_text(user_id, "btn_cancel"))]],
+        resize_keyboard=True
+    )
+
+
+def get_admin_keyboard(user_id):
+    t = lambda key: get_text(user_id, key)
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t("btn_map")), KeyboardButton(text=t("btn_add"))],
+            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_manage"))],
+            [KeyboardButton(text=t("btn_language"))]
+        ],
+        resize_keyboard=True
+    )
 
 
 # Определяем шаги диалога
@@ -46,24 +63,60 @@ class AddGraffiti(StatesGroup):
     date = State()
     description = State()
 
+
 class SearchGraffiti(StatesGroup):
     query = State()
+
+
+# Все возможные тексты кнопок для фильтров
+MAP_TEXTS = {"🗺 Карта", "🗺 Map", "🗺 რუკა", "/map"}
+ADD_TEXTS = {"➕ Добавить граффити", "➕ Add graffiti", "➕ გრაფიტის დამატება", "/add"}
+SEARCH_TEXTS = {"🔍 Поиск", "🔍 Search", "🔍 ძიება", "/search"}
+CANCEL_TEXTS = {"❌ Отмена", "❌ Cancel", "❌ გაუქმება"}
+MANAGE_TEXTS = {"⚙️ Управление", "⚙️ Manage", "⚙️ მართვა"}
+LANGUAGE_TEXTS = {"🌐 Язык", "🌐 Language", "🌐 ენა"}
 
 
 # Команда /start
 @dp.message(CommandStart())
 async def start(message: types.Message):
-    await message.answer(
-        "Привет! Я бот «Граффити Тбилиси» 🎨\n\n"
-        "Нажмите кнопку ниже, чтобы начать:",
-        reply_markup=main_keyboard
-    )
+    uid = message.from_user.id
+    kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
+    await message.answer(get_text(uid, "start"), reply_markup=kb)
 
-@dp.message(F.text.in_({"/map", "🗺 Карта"}))
+
+# Выбор языка
+@dp.message(F.text.in_(LANGUAGE_TEXTS))
+async def choose_language(message: types.Message):
+    uid = message.from_user.id
+    lang_keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru")],
+            [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en")],
+            [InlineKeyboardButton(text="🇬🇪 ქართული", callback_data="lang_ka")]
+        ]
+    )
+    await message.answer(get_text(uid, "choose_language"), reply_markup=lang_keyboard)
+
+
+@dp.callback_query(F.data.startswith("lang_"))
+async def set_lang(callback: types.CallbackQuery):
+    uid = callback.from_user.id
+    lang = callback.data.split("_")[1]
+    set_language(uid, lang)
+    kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
+    await callback.message.answer(get_text(uid, "language_set"), reply_markup=kb)
+    await callback.answer()
+
+
+# Карта
+@dp.message(F.text.in_(MAP_TEXTS))
 async def show_map(message: types.Message):
+    uid = message.from_user.id
     graffiti_list = get_all_graffiti()
+    kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
     if not graffiti_list:
-        await message.answer("На карте пока нет граффити. Добавьте первое через /add", reply_markup=main_keyboard)
+        await message.answer(get_text(uid, "no_graffiti"), reply_markup=kb)
         return
 
     await generate_map(bot)
@@ -71,131 +124,134 @@ async def show_map(message: types.Message):
     web_app_button = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(
-                text="🗺 Открыть карту",
+                text=get_text(uid, "btn_open_map"),
                 web_app=WebAppInfo(url=WEB_APP_URL)
             )]
         ]
     )
-    await message.answer("Нажмите кнопку, чтобы открыть карту:", reply_markup=web_app_button)
+    await message.answer(get_text(uid, "open_map"), reply_markup=web_app_button)
 
 
-@dp.message(F.text == "❌ Отмена")
+# Отмена
+@dp.message(F.text.in_(CANCEL_TEXTS))
 async def cancel(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     current_state = await state.get_state()
     if current_state is not None:
         await state.clear()
-    await message.answer("Действие отменено.", reply_markup=main_keyboard)
+    kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
+    await message.answer(get_text(uid, "cancelled"), reply_markup=kb)
 
 
-@dp.message(F.text.in_({"/search", "🔍 Поиск"}))
+# Поиск
+@dp.message(F.text.in_(SEARCH_TEXTS))
 async def search_start(message: types.Message, state: FSMContext):
-    await message.answer("Введите имя автора или ключевое слово:", reply_markup=cancel_keyboard)
+    uid = message.from_user.id
+    await message.answer(get_text(uid, "search_prompt"), reply_markup=get_cancel_keyboard(uid))
     await state.set_state(SearchGraffiti.query)
 
 
 @dp.message(SearchGraffiti.query)
 async def search_results(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     query = message.text.strip()
     results = search_graffiti(query)
+    kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
 
     if not results:
-        await message.answer(
-            f"По запросу «{query}» ничего не найдено.",
-            reply_markup=main_keyboard
-        )
+        await message.answer(get_text(uid, "search_empty").format(query), reply_markup=kb)
         await state.clear()
         return
 
-    await message.answer(f"Найдено граффити: {len(results)}")
+    await message.answer(get_text(uid, "search_found").format(len(results)))
 
     for item in results:
         g_id, lat, lon, photo_id, author, date, description, added_by, created_at, status = item
-
         text = (
-            f"🎨 Автор: {author}\n"
-            f"📅 Дата: {date}\n"
-            f"📝 Описание: {description or 'Нет описания'}\n"
-            f"📍 Координаты: {lat}, {lon}"
+            f"🎨 {author}\n"
+            f"📅 {date}\n"
+            f"📝 {description or get_text(uid, 'no_description')}\n"
+            f"📍 {lat}, {lon}"
         )
-
         if photo_id:
             await message.answer_photo(photo=photo_id, caption=text)
         else:
             await message.answer(text)
 
-    await message.answer("Поиск завершён.", reply_markup=main_keyboard)
+    await message.answer(get_text(uid, "search_done"), reply_markup=kb)
     await state.clear()
 
 
-# Команда /add — начало добавления
-@dp.message(F.text.in_({"/add", "➕ Добавить граффити"}))
+# Добавление граффити
+@dp.message(F.text.in_(ADD_TEXTS))
 async def add_start(message: types.Message, state: FSMContext):
-    await message.answer("📸 Отправьте фото граффити:", reply_markup=cancel_keyboard)
+    uid = message.from_user.id
+    await message.answer(get_text(uid, "send_photo"), reply_markup=get_cancel_keyboard(uid))
     await state.set_state(AddGraffiti.photo)
 
 
-# Шаг 1: Получаем фото
 @dp.message(AddGraffiti.photo, F.photo)
 async def get_photo(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     photo_id = message.photo[-1].file_id
     await state.update_data(photo_id=photo_id)
-    await message.answer(
-        "📍 Теперь отправьте геолокацию граффити.\n\n"
-        "Нажмите скрепку 📎 → Геолокация → выберите точку на карте."
-    )
+    await message.answer(get_text(uid, "send_location"))
     await state.set_state(AddGraffiti.location)
 
 
-# Если отправили не фото
 @dp.message(AddGraffiti.photo)
 async def get_photo_wrong(message: types.Message):
-    await message.answer("Пожалуйста, отправьте именно фото.")
+    uid = message.from_user.id
+    await message.answer(get_text(uid, "send_photo_please"))
 
 
-# Шаг 2: Получаем геолокацию
 @dp.message(AddGraffiti.location, F.location)
 async def get_location(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     await state.update_data(
         latitude=message.location.latitude,
         longitude=message.location.longitude
     )
-    await message.answer("✍️ Введите никнейм автора граффити (или напишите «нет», если неизвестен):")
+    await message.answer(get_text(uid, "send_author"))
     await state.set_state(AddGraffiti.author)
 
 
-# Если отправили не геолокацию
 @dp.message(AddGraffiti.location)
 async def get_location_wrong(message: types.Message):
-    await message.answer("Пожалуйста, отправьте именно геолокацию (📎 → Геолокация).")
+    uid = message.from_user.id
+    await message.answer(get_text(uid, "send_location_please"))
 
 
-# Шаг 3: Получаем автора
 @dp.message(AddGraffiti.author)
 async def get_author(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     author = message.text.strip()
-    if author.lower() == "нет":
-        author = "Неизвестен"
+    no_words = {"нет", "no", "არა"}
+    if author.lower() in no_words:
+        author = get_text(uid, "unknown_author")
     await state.update_data(author=author)
-    await message.answer("📅 Введите дату нанесения (например: 2024 или март 2024), или «нет»:")
+    await message.answer(get_text(uid, "send_date"))
     await state.set_state(AddGraffiti.date)
 
 
-# Шаг 4: Получаем дату
 @dp.message(AddGraffiti.date)
 async def get_date(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     date = message.text.strip()
-    if date.lower() == "нет":
-        date = "Неизвестна"
+    no_words = {"нет", "no", "არა"}
+    if date.lower() in no_words:
+        date = get_text(uid, "unknown_date")
     await state.update_data(date=date)
-    await message.answer("📝 Добавьте описание граффити (или «нет»):")
+    await message.answer(get_text(uid, "send_description"))
     await state.set_state(AddGraffiti.description)
 
 
-# Шаг 5: Получаем описание и сохраняем
 @dp.message(AddGraffiti.description)
 async def get_description(message: types.Message, state: FSMContext):
+    uid = message.from_user.id
     description = message.text.strip()
-    if description.lower() == "нет":
+    no_words = {"нет", "no", "არა"}
+    if description.lower() in no_words:
         description = ""
 
     data = await state.get_data()
@@ -210,10 +266,8 @@ async def get_description(message: types.Message, state: FSMContext):
         added_by=str(message.from_user.id)
     )
 
-    await message.answer(
-        "✅ Граффити отправлено на модерацию! После проверки оно появится на карте.",
-        reply_markup=main_keyboard
-    )
+    kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
+    await message.answer(get_text(uid, "added"), reply_markup=kb)
 
     # Уведомляем админа
     admin_keyboard = InlineKeyboardMarkup(
@@ -239,6 +293,7 @@ async def get_description(message: types.Message, state: FSMContext):
     await state.clear()
 
 
+# Модерация
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve(callback: types.CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
@@ -250,6 +305,7 @@ async def approve(callback: types.CallbackQuery):
         reply_markup=None
     )
     await callback.answer("Одобрено!")
+
 
 @dp.callback_query(F.data.startswith("reject_"))
 async def reject(callback: types.CallbackQuery):
@@ -264,35 +320,35 @@ async def reject(callback: types.CallbackQuery):
     await callback.answer("Отклонено!")
 
 
-@dp.message(F.text == "⚙️ Управление")
+# Управление
+@dp.message(F.text.in_(MANAGE_TEXTS))
 async def manage_graffiti(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("Эта функция доступна только администратору.")
+    uid = message.from_user.id
+    if uid != ADMIN_ID:
+        await message.answer(get_text(uid, "admin_only"))
         return
 
     graffiti_list = get_all_graffiti()
+    kb = get_admin_keyboard(uid)
     if not graffiti_list:
-        await message.answer("На карте пока нет граффити.", reply_markup=main_keyboard)
+        await message.answer(get_text(uid, "no_graffiti"), reply_markup=kb)
         return
 
-    await message.answer(f"На карте {len(graffiti_list)} граффити:")
+    await message.answer(get_text(uid, "graffiti_count").format(len(graffiti_list)))
 
     for item in graffiti_list:
         g_id, lat, lon, photo_id, author, date, description, added_by, created_at, status = item
-
         text = (
             f"ID: {g_id}\n"
-            f"🎨 Автор: {author}\n"
-            f"📅 Дата: {date}\n"
-            f"📝 Описание: {description or 'Нет описания'}"
+            f"🎨 {author}\n"
+            f"📅 {date}\n"
+            f"📝 {description or get_text(uid, 'no_description')}"
         )
-
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"delete_{g_id}")]
+                [InlineKeyboardButton(text=get_text(uid, "delete"), callback_data=f"delete_{g_id}")]
             ]
         )
-
         if photo_id:
             await message.answer_photo(photo=photo_id, caption=text, reply_markup=keyboard)
         else:
@@ -303,41 +359,39 @@ async def manage_graffiti(message: types.Message):
 async def delete_callback(callback: types.CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
         return
-
+    uid = callback.from_user.id
     graffiti_id = int(callback.data.split("_")[1])
-
     confirm_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"confirm_delete_{graffiti_id}"),
-                InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_delete")
+                InlineKeyboardButton(text=get_text(uid, "confirm_delete"),
+                                     callback_data=f"confirm_delete_{graffiti_id}"),
+                InlineKeyboardButton(text=get_text(uid, "cancel_delete_btn"), callback_data="cancel_delete")
             ]
         ]
     )
     await callback.message.edit_reply_markup(reply_markup=confirm_keyboard)
-    await callback.answer("Подтвердите удаление")
+    await callback.answer(get_text(uid, "confirm_deletion"))
 
 
 @dp.callback_query(F.data.startswith("confirm_delete_"))
 async def confirm_delete(callback: types.CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
         return
-
+    uid = callback.from_user.id
     graffiti_id = int(callback.data.split("_")[2])
     delete_graffiti(graffiti_id)
-
     await callback.message.edit_caption(
-        caption=callback.message.caption + "\n\n🗑 УДАЛЕНО",
+        caption=callback.message.caption + f"\n\n{get_text(uid, 'deleted')}",
         reply_markup=None
     )
-    await callback.answer("Граффити удалено!")
+    await callback.answer(get_text(uid, "deleted"))
 
 
 @dp.callback_query(F.data == "cancel_delete")
 async def cancel_delete(callback: types.CallbackQuery):
     await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.answer("Отменено")
-
+    await callback.answer()
 
 
 async def main():
@@ -347,11 +401,10 @@ async def main():
     app = create_app()
     runner = web.AppRunner(app)
     await runner.setup()
-    import os
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print("Веб-сервер запущен на порту 8080")
+    print(f"Веб-сервер запущен на порту {port}")
 
     # Запускаем бота
     await dp.start_polling(bot)

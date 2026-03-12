@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, search_graffiti, \
+from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, get_stats, search_graffiti, \
     delete_graffiti
 from map_generator import generate_map
 from aiogram.types import FSInputFile
@@ -30,7 +30,8 @@ def get_main_keyboard(user_id):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t("btn_map")), KeyboardButton(text=t("btn_add"))],
-            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_language"))]
+            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_stats"))],
+            [KeyboardButton(text=t("btn_language"))]
         ],
         resize_keyboard=True
     )
@@ -75,6 +76,7 @@ SEARCH_TEXTS = {"🔍 Поиск", "🔍 Search", "🔍 ძიება", "/sear
 CANCEL_TEXTS = {"❌ Отмена", "❌ Cancel", "❌ გაუქმება"}
 MANAGE_TEXTS = {"⚙️ Управление", "⚙️ Manage", "⚙️ მართვა"}
 LANGUAGE_TEXTS = {"🌐 Язык", "🌐 Language", "🌐 ენა"}
+STATS_TEXTS = {"📊 Статистика", "📊 Stats", "📊 სტატისტიკა"}
 
 
 # Команда /start
@@ -392,6 +394,23 @@ async def confirm_delete(callback: types.CallbackQuery):
 async def cancel_delete(callback: types.CallbackQuery):
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer()
+
+
+@dp.message(F.text.in_(STATS_TEXTS))
+async def show_stats(message: types.Message):
+    uid = message.from_user.id
+    stats = get_stats()
+    text = get_text(uid, "stats").format(
+        approved=stats["approved"],
+        pending=stats["pending"],
+        total=stats["total"]
+    )
+    if stats["top_users"]:
+        text += get_text(uid, "top_users")
+        for i, (user_id, count) in enumerate(stats["top_users"], 1):
+            text += f"\n{i}. ID {user_id} — {count}"
+
+    await message.answer(text)
 
 
 async def main():

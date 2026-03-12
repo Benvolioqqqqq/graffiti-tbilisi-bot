@@ -38,6 +38,9 @@ TEXTS = {
         "no": "нет",
         "unknown_author": "Неизвестен",
         "unknown_date": "Неизвестна",
+        "btn_stats": "📊 Статистика",
+        "stats": "📊 Статистика:\n\n🎨 На карте: {approved}\n⏳ На модерации: {pending}\n📦 Всего: {total}",
+        "top_users": "\n\n🏆 Топ участников:",
     },
     "en": {
         "start": "Hello! I'm the «Tbilisi Graffiti» bot 🎨\n\nChoose an action:",
@@ -78,6 +81,9 @@ TEXTS = {
         "no": "no",
         "unknown_author": "Unknown",
         "unknown_date": "Unknown",
+        "btn_stats": "📊 Stats",
+        "stats": "📊 Statistics:\n\n🎨 On map: {approved}\n⏳ Pending: {pending}\n📦 Total: {total}",
+        "top_users": "\n\n🏆 Top contributors:",
     },
     "ka": {
         "start": "გამარჯობა! მე ვარ ბოტი «თბილისის გრაფიტი» 🎨\n\nაირჩიეთ მოქმედება:",
@@ -118,6 +124,9 @@ TEXTS = {
         "no": "არა",
         "unknown_author": "უცნობი",
         "unknown_date": "უცნობია",
+        "btn_stats": "📊 სტატისტიკა",
+        "stats": "📊 სტატისტიკა:\n\n🎨 რუკაზე: {approved}\n⏳ მოდერაციაზე: {pending}\n📦 სულ: {total}",
+        "top_users": "\n\n🏆 ტოპ მონაწილეები:",
     }
 }
 

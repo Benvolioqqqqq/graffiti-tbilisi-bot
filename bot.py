@@ -54,20 +54,7 @@ def get_admin_keyboard(user_id):
         ],
         resize_keyboard=True
     )
-```
 
-Сохраните, запушьте и обновите на сервере:
-```
-git add .
-git commit -m "fix admin keyboard"
-git push
-```
-
-На сервере:
-```
-cd /root/graffiti-tbilisi-bot
-git pull
-systemctl restart graffiti-bot
 
 
 # Определяем шаги диалога

@@ -9,7 +9,7 @@ from database import get_all_graffiti
 async def generate_map(bot: Bot):
     tbilisi_map = folium.Map(
         location=[41.7151, 44.8271],
-        zoom_start=14,
+        zoom_start=12,
         tiles="CartoDB positron"
     )
 

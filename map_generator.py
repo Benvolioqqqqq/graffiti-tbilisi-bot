@@ -9,11 +9,17 @@ from database import get_all_graffiti
 async def generate_map(bot: Bot):
     tbilisi_map = folium.Map(
         location=[41.7151, 44.8271],
-        zoom_start=13,
+        zoom_start=14,
         tiles="CartoDB positron"
     )
 
-    marker_cluster = MarkerCluster(name="Граффити").add_to(tbilisi_map)
+    marker_cluster = MarkerCluster(
+        name="Граффити",
+        options={
+            "maxClusterRadius": 30,
+            "disableClusteringAtZoom": 14
+        }
+    ).add_to(tbilisi_map)
 
     graffiti_list = get_all_graffiti()
     os.makedirs("photos", exist_ok=True)

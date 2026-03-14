@@ -3,8 +3,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, get_stats, search_graffiti, \
-    delete_graffiti
+from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, search_graffiti, delete_graffiti, get_stats, save_user, get_users_count
 from map_generator import generate_map
 from aiogram.types import FSInputFile
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
@@ -84,6 +83,7 @@ STATS_TEXTS = {"📊 Статистика", "📊 Stats", "📊 სტატი�
 @dp.message(CommandStart())
 async def start(message: types.Message):
     uid = message.from_user.id
+    save_user(uid, message.from_user.username, message.from_user.full_name)
     kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
     await message.answer(get_text(uid, "start"), reply_markup=kb)
 
@@ -409,6 +409,9 @@ async def show_stats(message: types.Message):
         pending=stats["pending"],
         total=stats["total"]
     )
+    users = get_users_count()
+    text += get_text(uid, "users_count").format(users)
+
     if stats["top_users"]:
         text += get_text(uid, "top_users")
         medals = ["🥇", "🥈", "🥉"]

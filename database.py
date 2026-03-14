@@ -17,6 +17,14 @@ def init_db():
             status TEXT DEFAULT 'pending'
         )
     """)
+    cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                full_name TEXT,
+                first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
     conn.commit()
     conn.close()
 
@@ -97,3 +105,21 @@ def update_added_by_username(graffiti_id, username):
     cursor.execute("UPDATE graffiti SET added_by = ? WHERE id = ?", (username, graffiti_id))
     conn.commit()
     conn.close()
+
+def save_user(user_id, username, full_name):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR IGNORE INTO users (user_id, username, full_name) VALUES (?, ?, ?)",
+        (user_id, username, full_name)
+    )
+    conn.commit()
+    conn.close()
+
+def get_users_count():
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count

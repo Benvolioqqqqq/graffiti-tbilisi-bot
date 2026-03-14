@@ -61,9 +61,15 @@ def make_popup_html(img_base64, author, date, description):
     '''
 
 
-def make_custom_icon():
-    with open("marker.png", "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
+def get_marker_icon_base64():
+    img = Image.open("marker.png")
+    img = img.resize((36, 36), Image.LANCZOS)
+    buffer = BytesIO()
+    img.save(buffer, format="PNG", optimize=True)
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
+def make_custom_icon(icon_base64):
     return folium.DivIcon(
         html=f'''
         <div style="
@@ -71,7 +77,7 @@ def make_custom_icon():
             height: 36px;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
         ">
-            <img src="data:image/png;base64,{img_base64}" width="36" height="36">
+            <img src="data:image/png;base64,{icon_base64}" width="36" height="36">
         </div>
         ''',
         icon_size=(36, 36),
@@ -96,6 +102,7 @@ async def generate_map(bot: Bot):
     ).add_to(tbilisi_map)
 
     graffiti_list = get_all_graffiti()
+    icon_base64 = get_marker_icon_base64()
     os.makedirs("photos", exist_ok=True)
 
     for item in graffiti_list:
@@ -113,7 +120,7 @@ async def generate_map(bot: Bot):
         folium.Marker(
             location=[lat, lon],
             popup=folium.Popup(popup_html, max_width=260),
-            icon=make_custom_icon()
+            icon=make_custom_icon(icon_base64)
         ).add_to(marker_cluster)
 
     tbilisi_map.save("map.html")

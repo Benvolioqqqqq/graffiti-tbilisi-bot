@@ -90,3 +90,10 @@ def get_stats():
     top_users = cursor.fetchall()
     conn.close()
     return {"approved": approved, "pending": pending, "total": total, "top_users": top_users}
+
+def update_added_by_username(graffiti_id, username):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE graffiti SET added_by = ? WHERE id = ?", (username, graffiti_id))
+    conn.commit()
+    conn.close()

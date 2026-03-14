@@ -265,7 +265,7 @@ async def get_description(message: types.Message, state: FSMContext):
         author=data["author"],
         date=data["date"],
         description=description,
-        added_by=str(message.from_user.id)
+        added_by=message.from_user.username or message.from_user.full_name
     )
 
     kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
@@ -411,8 +411,17 @@ async def show_stats(message: types.Message):
     )
     if stats["top_users"]:
         text += get_text(uid, "top_users")
-        for i, (user_id, count) in enumerate(stats["top_users"], 1):
-            text += f"\n{i}. ID {user_id} — {count}"
+        medals = ["🥇", "🥈", "🥉"]
+        for i, (user, count) in enumerate(stats["top_users"]):
+            medal = medals[i] if i < 3 else f"{i+1}."
+            if user and not user.startswith("@"):
+                if not user.isdigit():
+                    user_display = f"@{user}"
+                else:
+                    user_display = user
+            else:
+                user_display = user or "Аноним"
+            text += f"\n{medal} {user_display} — {count}"
 
     await message.answer(text)
 

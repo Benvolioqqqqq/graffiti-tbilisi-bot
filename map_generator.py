@@ -62,44 +62,21 @@ def make_popup_html(img_base64, author, date, description):
 
 
 def make_custom_icon():
+    with open("marker.png", "rb") as f:
+        img_base64 = base64.b64encode(f.read()).decode()
     return folium.DivIcon(
-        html='''
+        html=f'''
         <div style="
-            width: 32px; 
-            height: 32px; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            width: 36px; 
+            height: 36px;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
         ">
-            <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <!-- Колпачок -->
-                <rect x="35" y="5" width="20" height="12" rx="3" fill="#E74C3C"/>
-                <!-- Распылитель -->
-                <rect x="42" y="0" width="6" height="8" rx="2" fill="#C0392B"/>
-                <!-- Тело баллона -->
-                <rect x="28" y="17" width="34" height="55" rx="6" fill="url(#grad)"/>
-                <!-- Полоса на баллоне -->
-                <rect x="28" y="40" width="34" height="14" fill="#6C3483" opacity="0.9"/>
-                <!-- Дно -->
-                <rect x="30" y="72" width="30" height="8" rx="3" fill="#7D3C98"/>
-                <!-- Брызги -->
-                <circle cx="75" cy="15" r="3" fill="#9B59B6" opacity="0.7"/>
-                <circle cx="82" cy="22" r="2" fill="#AF7AC5" opacity="0.5"/>
-                <circle cx="78" cy="28" r="2.5" fill="#D2B4DE" opacity="0.6"/>
-                <!-- Градиент -->
-                <defs>
-                    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#9B59B6"/>
-                        <stop offset="100%" style="stop-color:#6C3483"/>
-                    </linearGradient>
-                </defs>
-            </svg>
+            <img src="data:image/png;base64,{img_base64}" width="36" height="36">
         </div>
         ''',
-        icon_size=(32, 32),
-        icon_anchor=(16, 32),
-        popup_anchor=(0, -32)
+        icon_size=(36, 36),
+        icon_anchor=(18, 36),
+        popup_anchor=(0, -36)
     )
 
 

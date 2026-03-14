@@ -38,8 +38,6 @@ def make_popup_html(img_base64, author, date, description, reactions=None):
             </div>
         '''
 
-    reaction_html = ""
-
         parts = [
             f'🔥 {reactions["fire"]}',
             f'👍 {reactions["like"]}',

@@ -2,7 +2,7 @@ import asyncio
 import sqlite3
 from aiogram import Bot
 
-OLD_BOT_TOKEN = "8641645756:AAH-lvEe2e9kfBbMyMYnfgooB1lrt4MqK3g"
+OLD_BOT_TOKEN = "YOUR_OLD_TOKEN_HERE"
 
 async def download_all_photos():
     bot = Bot(token=OLD_BOT_TOKEN)

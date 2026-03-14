@@ -3,7 +3,7 @@ import sqlite3
 from aiogram import Bot
 from aiogram.types import FSInputFile
 
-NEW_BOT_TOKEN = "8218516359:AAFBPzaeayoeqIwKpj-HTxLYjsZ3dVpOiuk"
+NEW_BOT_TOKEN = "YOUR_NEW_TOKEN_HERE"
 ADMIN_ID = 516580829
 
 async def upload_all_photos():

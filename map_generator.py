@@ -39,7 +39,7 @@ def make_popup_html(img_base64, author, date, description, reactions=None):
         '''
 
     reaction_html = ""
-    if reactions["fire"] or reactions["like"] or reactions["puke"]:
+
         parts = [
             f'🔥 {reactions["fire"]}',
             f'👍 {reactions["like"]}',

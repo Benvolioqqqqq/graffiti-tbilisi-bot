@@ -18,6 +18,14 @@ def compress_photo(photo_path, max_width=300, quality=40):
     return base64.b64encode(buffer.getvalue()).decode()
 
 
+def get_marker_icon_base64():
+    img = Image.open("marker.png")
+    img = img.resize((72, 72), Image.LANCZOS)
+    buffer = BytesIO()
+    img.save(buffer, format="PNG", optimize=True)
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
 def make_popup_html(img_base64, author, date, description):
     img_section = ""
     if img_base64:
@@ -61,31 +69,6 @@ def make_popup_html(img_base64, author, date, description):
     '''
 
 
-def get_marker_icon_base64():
-    img = Image.open("marker.png")
-    img = img.resize((36, 36), Image.LANCZOS)
-    buffer = BytesIO()
-    img.save(buffer, format="PNG", optimize=True)
-    return base64.b64encode(buffer.getvalue()).decode()
-
-
-def make_custom_icon(icon_base64):
-    return folium.DivIcon(
-        html=f'''
-        <div style="
-            width: 36px; 
-            height: 36px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-        ">
-            <img src="data:image/png;base64,{icon_base64}" width="36" height="36">
-        </div>
-        ''',
-        icon_size=(36, 36),
-        icon_anchor=(18, 36),
-        popup_anchor=(0, -36)
-    )
-
-
 async def generate_map(bot: Bot):
     tbilisi_map = folium.Map(
         location=[41.7151, 44.8271],
@@ -101,8 +84,25 @@ async def generate_map(bot: Bot):
         }
     ).add_to(tbilisi_map)
 
-    graffiti_list = get_all_graffiti()
+    # Загружаем иконку один раз
     icon_base64 = get_marker_icon_base64()
+
+    # Добавляем CSS-стиль с иконкой один раз в карту
+    icon_css = f'''
+    <style>
+        .graffiti-icon {{
+            width: 36px;
+            height: 36px;
+            background-image: url('data:image/png;base64,{icon_base64}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }}
+    </style>
+    '''
+    tbilisi_map.get_root().html.add_child(folium.Element(icon_css))
+
+    graffiti_list = get_all_graffiti()
     os.makedirs("photos", exist_ok=True)
 
     for item in graffiti_list:
@@ -117,10 +117,17 @@ async def generate_map(bot: Bot):
 
         popup_html = make_popup_html(img_base64, author, date, description)
 
+        icon = folium.DivIcon(
+            html='<div class="graffiti-icon"></div>',
+            icon_size=(36, 36),
+            icon_anchor=(18, 36),
+            popup_anchor=(0, -36)
+        )
+
         folium.Marker(
             location=[lat, lon],
             popup=folium.Popup(popup_html, max_width=260),
-            icon=make_custom_icon(icon_base64)
+            icon=icon
         ).add_to(marker_cluster)
 
     tbilisi_map.save("map.html")

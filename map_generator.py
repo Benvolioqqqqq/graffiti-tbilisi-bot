@@ -26,7 +26,7 @@ def get_marker_icon_base64():
 
 
 def make_popup_html(img_base64, author, date, description, reactions=None):
-    if not reactions:
+    if reactions is None:
         reactions = {"fire": 0, "like": 0, "puke": 0}
 
     img_section = ""

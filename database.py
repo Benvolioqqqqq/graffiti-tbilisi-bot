@@ -25,6 +25,14 @@ def init_db():
                 first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS likes (
+            user_id INTEGER,
+            graffiti_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, graffiti_id)
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -123,3 +131,62 @@ def get_users_count():
     count = cursor.fetchone()[0]
     conn.close()
     return count
+
+
+
+def toggle_like(user_id, graffiti_id):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
+    if cursor.fetchone():
+        cursor.execute("DELETE FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
+        liked = False
+    else:
+        cursor.execute("INSERT INTO likes (user_id, graffiti_id) VALUES (?, ?)", (user_id, graffiti_id))
+        liked = True
+    conn.commit()
+    conn.close()
+    return liked
+
+def get_likes_count(graffiti_id):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM likes WHERE graffiti_id = ?", (graffiti_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def is_liked(user_id, graffiti_id):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
+    result = cursor.fetchone() is not None
+    conn.close()
+    return result
+
+def get_top_liked(limit=5):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT g.id, g.author, g.photo_id, COUNT(l.user_id) as likes
+        FROM graffiti g
+        JOIN likes l ON g.id = l.graffiti_id
+        WHERE g.status = 'approved'
+        GROUP BY g.id
+        ORDER BY likes DESC
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def get_all_likes():
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT graffiti_id, COUNT(*) as cnt
+        FROM likes GROUP BY graffiti_id
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return dict(rows)

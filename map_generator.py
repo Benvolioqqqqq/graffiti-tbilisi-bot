@@ -5,7 +5,7 @@ import os
 from io import BytesIO
 from PIL import Image
 from aiogram import Bot
-from database import get_all_graffiti
+from database import get_all_graffiti, get_all_likes
 
 
 def compress_photo(photo_path, max_width=300, quality=40):
@@ -26,7 +26,7 @@ def get_marker_icon_base64():
     return base64.b64encode(buffer.getvalue()).decode()
 
 
-def make_popup_html(img_base64, author, date, description):
+def make_popup_html(img_base64, author, date, description, likes=0):
     img_section = ""
     if img_base64:
         img_section = f'''
@@ -46,17 +46,11 @@ def make_popup_html(img_base64, author, date, description):
     ">
         {img_section}
         <div style="padding:2px 4px;">
-            <div style="
-                font-size:14px; 
-                font-weight:bold; 
-                color:#6C3483; 
-                margin-bottom:6px;
-            ">🎨 {author}</div>
-            <div style="
-                font-size:12px; 
-                color:#666; 
-                margin-bottom:4px;
-            ">📅 {date}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div style="font-size:14px; font-weight:bold; color:#6C3483;">🎨 {author}</div>
+                <div style="font-size:13px; color:#E74C3C;">❤️ {likes}</div>
+            </div>
+            <div style="font-size:12px; color:#666; margin-bottom:4px;">📅 {date}</div>
             <div style="
                 font-size:12px; 
                 color:#333;
@@ -86,6 +80,7 @@ async def generate_map(bot: Bot):
 
     # Загружаем иконку один раз
     icon_base64 = get_marker_icon_base64()
+    all_likes = get_all_likes()
 
     # Добавляем CSS-стиль с иконкой один раз в карту
     icon_css = f'''
@@ -115,7 +110,8 @@ async def generate_map(bot: Bot):
             await bot.download_file(file.file_path, photo_path)
             img_base64 = compress_photo(photo_path)
 
-        popup_html = make_popup_html(img_base64, author, date, description)
+        likes = all_likes.get(g_id, 0)
+        popup_html = make_popup_html(img_base64, author, date, description, likes)
 
         icon = folium.DivIcon(
             html='<div class="graffiti-icon"></div>',

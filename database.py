@@ -26,13 +26,14 @@ def init_db():
             )
         """)
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS likes (
-            user_id INTEGER,
-            graffiti_id INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (user_id, graffiti_id)
-        )
-    """)
+            CREATE TABLE IF NOT EXISTS likes (
+                user_id INTEGER,
+                graffiti_id INTEGER,
+                reaction TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, graffiti_id)
+            )
+        """)
     conn.commit()
     conn.close()
 
@@ -134,35 +135,43 @@ def get_users_count():
 
 
 
-def toggle_like(user_id, graffiti_id):
+def toggle_reaction(user_id, graffiti_id, reaction):
     conn = sqlite3.connect("graffiti.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
-    if cursor.fetchone():
+    cursor.execute("SELECT reaction FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
+    row = cursor.fetchone()
+    if row and row[0] == reaction:
         cursor.execute("DELETE FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
-        liked = False
+        result = None
     else:
-        cursor.execute("INSERT INTO likes (user_id, graffiti_id) VALUES (?, ?)", (user_id, graffiti_id))
-        liked = True
+        cursor.execute("INSERT OR REPLACE INTO likes (user_id, graffiti_id, reaction) VALUES (?, ?, ?)", (user_id, graffiti_id, reaction))
+        result = reaction
     conn.commit()
     conn.close()
-    return liked
-
-def get_likes_count(graffiti_id):
-    conn = sqlite3.connect("graffiti.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM likes WHERE graffiti_id = ?", (graffiti_id,))
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
-
-def is_liked(user_id, graffiti_id):
-    conn = sqlite3.connect("graffiti.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
-    result = cursor.fetchone() is not None
-    conn.close()
     return result
+
+def get_reactions_count(graffiti_id):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT reaction, COUNT(*) FROM likes 
+        WHERE graffiti_id = ? GROUP BY reaction
+    """, (graffiti_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    counts = {"fire": 0, "like": 0, "puke": 0}
+    for reaction, count in rows:
+        if reaction in counts:
+            counts[reaction] = count
+    return counts
+
+def get_user_reaction(user_id, graffiti_id):
+    conn = sqlite3.connect("graffiti.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT reaction FROM likes WHERE user_id = ? AND graffiti_id = ?", (user_id, graffiti_id))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
 
 def get_top_liked(limit=5):
     conn = sqlite3.connect("graffiti.db")
@@ -180,13 +189,19 @@ def get_top_liked(limit=5):
     conn.close()
     return rows
 
-def get_all_likes():
+def get_all_reactions():
     conn = sqlite3.connect("graffiti.db")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT graffiti_id, COUNT(*) as cnt
-        FROM likes GROUP BY graffiti_id
+        SELECT graffiti_id, reaction, COUNT(*) as cnt
+        FROM likes GROUP BY graffiti_id, reaction
     """)
     rows = cursor.fetchall()
     conn.close()
-    return dict(rows)
+    result = {}
+    for g_id, reaction, count in rows:
+        if g_id not in result:
+            result[g_id] = {"fire": 0, "like": 0, "puke": 0}
+        if reaction in result[g_id]:
+            result[g_id][reaction] = count
+    return result

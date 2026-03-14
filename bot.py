@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, search_graffiti, delete_graffiti, get_stats, save_user, get_users_count, toggle_like, get_likes_count, get_top_liked
+from database import init_db, add_graffiti, get_all_graffiti, get_pending_graffiti, update_status, search_graffiti, delete_graffiti, get_stats, save_user, get_users_count, toggle_reaction, get_reactions_count, get_top_liked
 from map_generator import generate_map
 from aiogram.types import FSInputFile
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
@@ -169,22 +169,18 @@ async def search_results(message: types.Message, state: FSMContext):
 
     for item in results:
         g_id, lat, lon, photo_id, author, date, description, added_by, created_at, status = item
-        likes = get_likes_count(g_id)
         text = (
             f"🎨 {author}\n"
             f"📅 {date}\n"
             f"📝 {description or get_text(uid, 'no_description')}\n"
             f"📍 {lat}, {lon}"
         )
-        like_keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=f"❤️ {likes}", callback_data=f"like_{g_id}")]
-            ]
-        )
+        counts = get_reactions_count(g_id)
+        reaction_keyboard = get_reaction_keyboard(g_id, counts)
         if photo_id:
-            await message.answer_photo(photo=photo_id, caption=text, reply_markup=like_keyboard)
+            await message.answer_photo(photo=photo_id, caption=text, reply_markup=reaction_keyboard)
         else:
-            await message.answer(text, reply_markup=like_keyboard)
+            await message.answer(text, reply_markup=reaction_keyboard)
 
 
 # Добавление граффити
@@ -437,6 +433,19 @@ async def show_stats(message: types.Message):
 
     await message.answer(text)
 
+def get_reaction_keyboard(graffiti_id, counts=None):
+    if not counts:
+        counts = {"fire": 0, "like": 0, "puke": 0}
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"🔥 {counts['fire'] or ''}", callback_data=f"react_fire_{graffiti_id}"),
+                InlineKeyboardButton(text=f"👍 {counts['like'] or ''}", callback_data=f"react_like_{graffiti_id}"),
+                InlineKeyboardButton(text=f"🤮 {counts['puke'] or ''}", callback_data=f"react_puke_{graffiti_id}")
+            ]
+        ]
+    )
+
 
 async def main():
     init_db()
@@ -458,29 +467,28 @@ async def main():
     await dp.start_polling(bot)
 
 
-@dp.callback_query(F.data.startswith("like_"))
-async def like_graffiti(callback: types.CallbackQuery):
+@dp.callback_query(F.data.startswith("react_"))
+async def react_graffiti(callback: types.CallbackQuery):
     uid = callback.from_user.id
-    graffiti_id = int(callback.data.split("_")[1])
-    liked = toggle_like(uid, graffiti_id)
-    count = get_likes_count(graffiti_id)
-    heart = "❤️" if liked else "🤍"
+    parts = callback.data.split("_")
+    reaction = parts[1]
+    graffiti_id = int(parts[2])
+
+    result = toggle_reaction(uid, graffiti_id, reaction)
+    counts = get_reactions_count(graffiti_id)
 
     try:
         await callback.message.edit_reply_markup(
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text=f"{heart} {count}", callback_data=f"like_{graffiti_id}")]
-                ]
-            )
+            reply_markup=get_reaction_keyboard(graffiti_id, counts)
         )
     except:
         pass
 
-    if liked:
-        await callback.answer("❤️")
+    emojis = {"fire": "🔥", "like": "👍", "puke": "🤮"}
+    if result:
+        await callback.answer(emojis[reaction])
     else:
-        await callback.answer("Лайк убран")
+        await callback.answer("Реакция убрана")
 
 if __name__ == "__main__":
     asyncio.run(main())

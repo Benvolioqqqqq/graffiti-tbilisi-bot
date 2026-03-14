@@ -29,7 +29,7 @@ def get_main_keyboard(user_id):
     t = lambda key: get_text(user_id, key)
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=t("btn_map")), KeyboardButton(text=t("btn_add"))],
+            [KeyboardButton(text=t("btn_map"), web_app=WebAppInfo(url=WEB_APP_URL)), KeyboardButton(text=t("btn_add"))],
             [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_stats"))],
             [KeyboardButton(text=t("btn_language"))]
         ],
@@ -48,7 +48,7 @@ def get_admin_keyboard(user_id):
     t = lambda key: get_text(user_id, key)
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=t("btn_map")), KeyboardButton(text=t("btn_add"))],
+            [KeyboardButton(text=t("btn_map"), web_app=WebAppInfo(url=WEB_APP_URL)), KeyboardButton(text=t("btn_add"))],
             [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_stats"))],
             [KeyboardButton(text=t("btn_manage")), KeyboardButton(text=t("btn_language"))]
         ],
@@ -116,14 +116,13 @@ async def set_lang(callback: types.CallbackQuery):
 @dp.message(F.text.in_(MAP_TEXTS))
 async def show_map(message: types.Message):
     uid = message.from_user.id
-    graffiti_list = get_all_graffiti()
     kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
+    graffiti_list = get_all_graffiti()
     if not graffiti_list:
         await message.answer(get_text(uid, "no_graffiti"), reply_markup=kb)
         return
-
-    await generate_map(bot)
-
+    if not os.path.exists("map.html"):
+        await generate_map(bot)
     web_app_button = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(
@@ -308,6 +307,8 @@ async def approve(callback: types.CallbackQuery):
         reply_markup=None
     )
     await callback.answer("Одобрено!")
+    # Обновляем карту
+    await generate_map(bot)
 
 
 @dp.callback_query(F.data.startswith("reject_"))
@@ -389,6 +390,8 @@ async def confirm_delete(callback: types.CallbackQuery):
         reply_markup=None
     )
     await callback.answer(get_text(uid, "deleted"))
+    # Обновляем карту
+    await generate_map(bot)
 
 
 @dp.callback_query(F.data == "cancel_delete")
@@ -416,6 +419,10 @@ async def show_stats(message: types.Message):
 
 async def main():
     init_db()
+
+    # Генерируем карту при старте
+    if get_all_graffiti():
+        await generate_map(bot)
 
     # Запускаем веб-сервер
     app = create_app()

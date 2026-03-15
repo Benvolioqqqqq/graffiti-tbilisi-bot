@@ -43,6 +43,9 @@ TEXTS = {
         "top_users": "\n\n🏆 Топ участников:",
         "users_count": "\n\n👥 Пользователей: {}",
         "top_liked": "\n\n❤️ Самые популярные:",
+        "btn_gallery": "🖼 Галерея",
+        "gallery_empty": "Граффити пока нет.",
+        "gallery_counter": "{} из {}",
     },
     "en": {
         "start": "Hello! I'm the «Tbilisi Graffiti» bot 🎨\n\nChoose an action:",
@@ -88,6 +91,9 @@ TEXTS = {
         "top_users": "\n\n🏆 Top contributors:",
         "users_count": "\n\n👥 Users: {}",
         "top_liked": "\n\n❤️ Most popular:",
+        "btn_gallery": "🖼 Gallery",
+        "gallery_empty": "No graffiti yet.",
+        "gallery_counter": "{} of {}",
     },
     "ka": {
         "start": "გამარჯობა! მე ვარ ბოტი «თბილისის გრაფიტი» 🎨\n\nაირჩიეთ მოქმედება:",
@@ -133,6 +139,9 @@ TEXTS = {
         "top_users": "\n\n🏆 ტოპ მონაწილეები:",
         "users_count": "\n\n👥 მომხმარებლები: {}",
         "top_liked": "\n\n❤️ ყველაზე პოპულარული:",
+        "btn_gallery": "🖼 გალერეა",
+        "gallery_empty": "გრაფიტი ჯერ არ არის.",
+        "gallery_counter": "{} / {}",
     }
 }
 

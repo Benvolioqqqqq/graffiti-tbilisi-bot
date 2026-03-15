@@ -29,8 +29,8 @@ def get_main_keyboard(user_id):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t("btn_map"), web_app=WebAppInfo(url=WEB_APP_URL)), KeyboardButton(text=t("btn_add"))],
-            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_stats"))],
-            [KeyboardButton(text=t("btn_language"))]
+            [KeyboardButton(text=t("btn_gallery")), KeyboardButton(text=t("btn_search"))],
+            [KeyboardButton(text=t("btn_stats")), KeyboardButton(text=t("btn_language"))]
         ],
         resize_keyboard=True
     )
@@ -48,8 +48,9 @@ def get_admin_keyboard(user_id):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t("btn_map"), web_app=WebAppInfo(url=WEB_APP_URL)), KeyboardButton(text=t("btn_add"))],
-            [KeyboardButton(text=t("btn_search")), KeyboardButton(text=t("btn_stats"))],
-            [KeyboardButton(text=t("btn_manage")), KeyboardButton(text=t("btn_language"))]
+            [KeyboardButton(text=t("btn_gallery")), KeyboardButton(text=t("btn_search"))],
+            [KeyboardButton(text=t("btn_stats")), KeyboardButton(text=t("btn_manage"))],
+            [KeyboardButton(text=t("btn_language"))]
         ],
         resize_keyboard=True
     )
@@ -77,6 +78,7 @@ CANCEL_TEXTS = {"❌ Отмена", "❌ Cancel", "❌ გაუქმება"
 MANAGE_TEXTS = {"⚙️ Управление", "⚙️ Manage", "⚙️ მართვა"}
 LANGUAGE_TEXTS = {"🌐 Язык", "🌐 Language", "🌐 ენა"}
 STATS_TEXTS = {"📊 Статистика", "📊 Stats", "📊 სტატისტიკა"}
+GALLERY_TEXTS = {"🖼 Галерея", "🖼 Gallery", "🖼 გალერეა"}
 
 
 # Команда /start
@@ -442,6 +444,22 @@ def get_reaction_keyboard(graffiti_id, counts=None):
         ]
     )
 
+def get_gallery_keyboard(index, total, graffiti_id):
+    counts = get_reactions_count(graffiti_id)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"🔥 {counts['fire'] or ''}", callback_data=f"react_fire_{graffiti_id}"),
+                InlineKeyboardButton(text=f"👍 {counts['like'] or ''}", callback_data=f"react_like_{graffiti_id}"),
+                InlineKeyboardButton(text=f"🤮 {counts['puke'] or ''}", callback_data=f"react_puke_{graffiti_id}")
+            ],
+            [
+                InlineKeyboardButton(text="◀️", callback_data=f"gallery_{index - 1}"),
+                InlineKeyboardButton(text=f"{index + 1}/{total}", callback_data="gallery_noop"),
+                InlineKeyboardButton(text="▶️", callback_data=f"gallery_{index + 1}")
+            ]
+        ]
+    )
 
 async def main():
     init_db()
@@ -485,6 +503,69 @@ async def react_graffiti(callback: types.CallbackQuery):
         await callback.answer(emojis[reaction])
     else:
         await callback.answer("Реакция убрана")
+
+
+@dp.message(F.text.in_(GALLERY_TEXTS))
+async def gallery_start(message: types.Message):
+    uid = message.from_user.id
+    graffiti_list = get_all_graffiti()
+    if not graffiti_list:
+        kb = get_admin_keyboard(uid) if uid == ADMIN_ID else get_main_keyboard(uid)
+        await message.answer(get_text(uid, "gallery_empty"), reply_markup=kb)
+        return
+
+    item = graffiti_list[0]
+    g_id, lat, lon, photo_id, author, date, description, added_by, created_at, status = item
+    text = (
+        f"🎨 {author}\n"
+        f"📅 {date}\n"
+        f"📝 {description or get_text(uid, 'no_description')}\n"
+        f"📍 {lat}, {lon}"
+    )
+    keyboard = get_gallery_keyboard(0, len(graffiti_list), g_id)
+    if photo_id:
+        await message.answer_photo(photo=photo_id, caption=text, reply_markup=keyboard)
+    else:
+        await message.answer(text, reply_markup=keyboard)
+
+
+@dp.callback_query(F.data.startswith("gallery_"))
+async def gallery_navigate(callback: types.CallbackQuery):
+    if callback.data == "gallery_noop":
+        await callback.answer()
+        return
+
+    uid = callback.from_user.id
+    graffiti_list = get_all_graffiti()
+    total = len(graffiti_list)
+    index = int(callback.data.split("_")[1])
+
+    if index < 0:
+        index = total - 1
+    elif index >= total:
+        index = 0
+
+    item = graffiti_list[index]
+    g_id, lat, lon, photo_id, author, date, description, added_by, created_at, status = item
+    text = (
+        f"🎨 {author}\n"
+        f"📅 {date}\n"
+        f"📝 {description or get_text(uid, 'no_description')}\n"
+        f"📍 {lat}, {lon}"
+    )
+    keyboard = get_gallery_keyboard(index, total, g_id)
+
+    try:
+        if photo_id:
+            media = types.InputMediaPhoto(media=photo_id, caption=text)
+            await callback.message.edit_media(media=media, reply_markup=keyboard)
+        else:
+            await callback.message.edit_text(text=text, reply_markup=keyboard)
+    except:
+        pass
+
+    await callback.answer()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

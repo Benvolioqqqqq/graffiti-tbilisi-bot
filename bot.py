@@ -491,10 +491,34 @@ async def react_graffiti(callback: types.CallbackQuery):
     result = toggle_reaction(uid, graffiti_id, reaction)
     counts = get_reactions_count(graffiti_id)
 
-    try:
-        await callback.message.edit_reply_markup(
-            reply_markup=get_reaction_keyboard(graffiti_id, counts)
+    # Проверяем, есть ли кнопки галереи в текущей клавиатуре
+    current_markup = callback.message.reply_markup
+    gallery_row = None
+    if current_markup:
+        for row in current_markup.inline_keyboard:
+            for btn in row:
+                if btn.callback_data and btn.callback_data.startswith("gallery_"):
+                    gallery_row = row
+                    break
+
+    if gallery_row:
+        # Галерея — сохраняем стрелки
+        new_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text=f"🔥 {counts['fire'] or ''}", callback_data=f"react_fire_{graffiti_id}"),
+                    InlineKeyboardButton(text=f"👍 {counts['like'] or ''}", callback_data=f"react_like_{graffiti_id}"),
+                    InlineKeyboardButton(text=f"🤮 {counts['puke'] or ''}", callback_data=f"react_puke_{graffiti_id}")
+                ],
+                gallery_row
+            ]
         )
+    else:
+        # Обычный поиск — только реакции
+        new_keyboard = get_reaction_keyboard(graffiti_id, counts)
+
+    try:
+        await callback.message.edit_reply_markup(reply_markup=new_keyboard)
     except:
         pass
 

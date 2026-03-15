@@ -425,11 +425,7 @@ async def show_stats(message: types.Message):
                 user_display = user or "Аноним"
             text += f"\n{medal} {user_display} — {count}"
 
-            top_liked = get_top_liked(3)
-            if top_liked:
-                text += get_text(uid, "top_liked")
-                for g_id, author, photo_id, likes in top_liked:
-                    text += f"\n❤️ {likes} — {author}"
+
 
     await message.answer(text)
 

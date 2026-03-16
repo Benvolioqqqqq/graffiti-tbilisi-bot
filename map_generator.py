@@ -80,7 +80,7 @@ def make_popup_html(img_base64, author, date, description, reactions=None):
                 border-top:1px solid #eee;
                 padding-top:6px;
                 margin-top:4px;
-            ">{description or '<i style="color:#999;">Нет описания</i>'}</div>
+            ">{description or '<i style="color:#999;">No description</i>'}</div>
             {reaction_html}
         </div>
     </div>
